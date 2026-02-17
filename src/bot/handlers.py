@@ -1,8 +1,10 @@
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.context import FSMContext
 from src.database.models import get_db, SourceGroup, Log
 from src.config import settings
+from src.bot.states import TelegramLogin
 
 router = Router()
 
@@ -213,19 +215,87 @@ async def settings_menu(callback: CallbackQuery):
     await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
 
 @router.callback_query(F.data == "connect_telegram")
-async def connect_telegram(callback: CallbackQuery):
-    text = "🔗 **Telegram Akkauntni Ulash:**\n\n"
-    text += "1. @BotFather ga `/newbot` yuboring\n"
-    text += "2. Bot nomini kiriting\n"
-    text += "3. Bot username kiriting\n"
-    text += "4. Token oling\n\n"
-    text += "Keyin `/settoken <token>` buyrug'ini yuboring"
+async def connect_telegram(callback: CallbackQuery, state: FSMContext):
+    text = "📱 **Telegram Akkauntga Kirish:**\n\n"
+    text += "Telefon raqamingizni kiriting\n"
+    text += "Misol: +998901234567"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="settings")],
+        [InlineKeyboardButton(text="❌ Bekor Qilish", callback_data="settings")],
     ])
     
     await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    await state.set_state(TelegramLogin.waiting_for_phone)
+
+@router.message(TelegramLogin.waiting_for_phone)
+async def process_phone(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    phone = message.text.strip()
+    
+    try:
+        from telethon import TelegramClient
+        from src.config import settings
+        
+        client = TelegramClient('admin_session', settings.API_ID, settings.API_HASH)
+        await client.connect()
+        
+        result = await client.send_code_request(phone)
+        
+        await state.update_data(phone=phone, phone_code_hash=result.phone_code_hash, client=client)
+        await state.set_state(TelegramLogin.waiting_for_code)
+        
+        await message.answer("✅ Kod yuborildi! Telegram'dan kelgan kodni kiriting:")
+    except Exception as e:
+        await message.answer(f"❌ Xato: {str(e)}")
+        await state.clear()
+
+@router.message(TelegramLogin.waiting_for_code)
+async def process_code(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    code = message.text.strip()
+    data = await state.get_data()
+    
+    try:
+        client = data['client']
+        phone = data['phone']
+        
+        await client.sign_in(phone, code)
+        
+        # Save session
+        await client.disconnect()
+        
+        await message.answer("✅ Muvaffaqiyatli kirildi! Botni qayta ishga tushiring: /restart")
+        await state.clear()
+    except Exception as e:
+        if "password" in str(e).lower():
+            await state.set_state(TelegramLogin.waiting_for_password)
+            await message.answer("🔐 2FA parol kiriting:")
+        else:
+            await message.answer(f"❌ Xato: {str(e)}")
+            await state.clear()
+
+@router.message(TelegramLogin.waiting_for_password)
+async def process_password(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    password = message.text.strip()
+    data = await state.get_data()
+    
+    try:
+        client = data['client']
+        await client.sign_in(password=password)
+        await client.disconnect()
+        
+        await message.answer("✅ Muvaffaqiyatli kirildi! Botni qayta ishga tushiring: /restart")
+        await state.clear()
+    except Exception as e:
+        await message.answer(f"❌ Xato: {str(e)}")
+        await state.clear()
 
 @router.message(Command("settoken"))
 async def set_token_cmd(message: Message):
