@@ -1,7 +1,7 @@
 # Vijdon User Bot
 
 Pythonda yozilgan zamonaviy Telegram Userbot + Bot.
-Ushbu loyiha Telegram guruhlardagi xabarlarni kuzatib, haydovchi va yo'lovchilarni aniqlaydi va buyurtmalarni alohida guruhga yuboradi.oke
+Ushbu loyiha Telegram guruhlardagi xabarlarni kuzatib, haydovchi va yo'lovchilarni aniqlaydi va buyurtmalarni alohida guruhga yuboradi
 
 ## Xususiyatlari
 - **Userbot (Telethon)**: Guruhdagi xabarlarni o'qiydi.
