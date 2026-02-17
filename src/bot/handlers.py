@@ -216,16 +216,66 @@ async def settings_menu(callback: CallbackQuery):
 
 @router.callback_query(F.data == "connect_telegram")
 async def connect_telegram(callback: CallbackQuery, state: FSMContext):
-    text = "📱 **Telegram Akkauntga Kirish:**\n\n"
+    import os
+    
+    session_exists = os.path.exists('userbot_session.session')
+    
+    if session_exists:
+        text = "📱 **Telegram Akkaunti:**\n\n"
+        text += "✅ Akkount ulangan\n\n"
+        text += "Nima qilmoqchisiz?"
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Boshqa Akkaunt", callback_data="reconnect_telegram")],
+            [InlineKeyboardButton(text="🚪 Chiqish", callback_data="logout_telegram")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
+        ])
+    else:
+        text = "📱 **Telegram Akkauntga Kirish:**\n\n"
+        text += "Telefon raqamingizni kiriting\n"
+        text += "Misol: +998901234567"
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Bekor Qilish", callback_data="back_main")],
+        ])
+        
+        await state.set_state(TelegramLogin.waiting_for_phone)
+    
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
+@router.callback_query(F.data == "reconnect_telegram")
+async def reconnect_telegram(callback: CallbackQuery, state: FSMContext):
+    text = "📱 **Yangi Akkauntga Kirish:**\n\n"
     text += "Telefon raqamingizni kiriting\n"
     text += "Misol: +998901234567"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="❌ Bekor Qilish", callback_data="settings")],
+        [InlineKeyboardButton(text="❌ Bekor Qilish", callback_data="connect_telegram")],
     ])
     
     await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
     await state.set_state(TelegramLogin.waiting_for_phone)
+
+@router.callback_query(F.data == "logout_telegram")
+async def logout_telegram(callback: CallbackQuery):
+    import os
+    
+    try:
+        if os.path.exists('userbot_session.session'):
+            os.remove('userbot_session.session')
+        if os.path.exists('userbot_session.session-journal'):
+            os.remove('userbot_session.session-journal')
+        
+        text = "✅ Akkauntdan chiqildi!\n\n"
+        text += "Botni qayta ishga tushiring: /restart"
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
+        ])
+        
+        await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    except Exception as e:
+        await callback.answer(f"❌ Xato: {str(e)}")
 
 @router.message(TelegramLogin.waiting_for_phone)
 async def process_phone(message: Message, state: FSMContext):
