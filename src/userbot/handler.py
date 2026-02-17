@@ -7,22 +7,18 @@ from datetime import datetime
 from src.bot.loader import bot
 
 async def handle_new_message(event):
-    # Check if chat is in monitored source groups
     chat_id = event.chat_id
     
-    # Simple cache or check DB every time? For MVP check DB or memory.
-    # In production, use Redis/cache.
     db = next(get_db())
-    # SQLAlchemy requires standardizing chat_id format (int vs string)
-    # Telethon chat_id is int.
-    # Check whitelist
     allowed = db.query(SourceGroup).filter(SourceGroup.chat_id == str(chat_id), SourceGroup.active == True).first()
     
     if not allowed:
+        db.close()
         return
 
     text = event.message.message
     if not text or len(text) < 10:
+        db.close()
         return
 
     # Call AI
@@ -32,9 +28,10 @@ async def handle_new_message(event):
     try:
         log_entry = Log(
             user_id=str(event.sender_id),
-            message_text=text[:200], # truncate log
+            message_text=text[:200],
             is_passenger=(result.get("type") == "PASSENGER"),
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
+            source_chat_id=str(chat_id)
         )
         db.add(log_entry)
         db.commit()
@@ -44,25 +41,30 @@ async def handle_new_message(event):
     # Process Result
     if result.get("type") == "PASSENGER":
         data = result.get("data", {})
-        # Format the message for the driver group
+        
+        # Get sender info
+        sender = await event.get_sender()
+        sender_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip()
+        sender_username = f"@{sender.username}" if sender.username else ""
+        
         msg = (
             "🚖 **Yangi Buyurtma!**\n\n"
-            f"📍 **Qayerdan:** {data.get('pickup', 'Noma\'lum')}\n"
-            f"🏁 **Qayerga:** {data.get('dropoff', 'Noma\'lum')}\n"
+            f"📍 **Qayerdan:** {data.get('pickup', 'Nomalum')}\n"
+            f"🏁 **Qayerga:** {data.get('dropoff', 'Nomalum')}\n"
             f"💰 **Narx:** {data.get('price', 'Kelishiladi')}\n"
-            f"📞 **Aloqa:** {data.get('phone', 'Noma\'lum')}\n"
-            f"📝 **Izoh:** {data.get('note', '')}\n\n"
-            f"#yolovchi #{chat_id}" 
+            f"📞 **Aloqa:** {data.get('phone', sender_username or 'Nomalum')}\n"
         )
         
-        # Send to Target Group via BOT
+        if data.get('note'):
+            msg += f"📝 **Izoh:** {data.get('note')}\n"
+        
+        msg += f"\n👤 **Mijoz:** {sender_name} {sender_username}\n"
+        msg += f"💬 **Guruh:** {allowed.name or chat_id}\n\n"
+        msg += f"#buyurtma #{chat_id}"
+        
         try:
-             await bot.send_message(chat_id=settings.TARGET_GROUP_ID, text=msg)
+            await bot.send_message(chat_id=settings.TARGET_GROUP_ID, text=msg, parse_mode="Markdown")
         except Exception as e:
             print(f"Failed to send to target group: {e}")
-            
-    elif result.get("type") == "DRIVER":
-        # Maybe log or execute other logic
-        pass
 
     db.close()

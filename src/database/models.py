@@ -20,7 +20,8 @@ class Log(Base):
     message_text = Column(String)
     is_passenger = Column(Boolean)
     timestamp = Column(DateTime, default=datetime.utcnow)
-    extracted_data = Column(String) # JSON string
+    extracted_data = Column(String)
+    source_chat_id = Column(String, nullable=True)
 
 engine = create_engine('sqlite:///bot_data.db')
 Base.metadata.create_all(engine)

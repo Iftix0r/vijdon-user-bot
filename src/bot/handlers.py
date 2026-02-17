@@ -278,3 +278,28 @@ async def stats_cmd(message: Message):
     passengers = db.query(Log).filter(Log.is_passenger == True).count()
     await message.answer(f"📊 **Statistika**\n\nJami Xabarlar: {count}\nYo'lovchilar: {passengers}", parse_mode="Markdown")
     db.close()
+
+@router.message(Command("help"))
+async def help_cmd(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    text = """
+📖 **Yordam**
+
+**Admin Komandalar:**
+/start - Boshqaruv paneli
+/add <chat_id> <nomi> - Guruh qo'shish
+/stats - Statistika
+/help - Yordam
+
+**Misol:**
+`/add -1001234567890 Namangan Taksi`
+
+**Bot Funksiyalari:**
+✅ Guruhlarni kuzatish
+✅ AI orqali buyurtmalarni aniqlash
+✅ Haydovchilar guruhiga yuborish
+✅ Statistika va hisobotlar
+"""
+    await message.answer(text, parse_mode="Markdown")
