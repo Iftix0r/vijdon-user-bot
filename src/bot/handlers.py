@@ -17,6 +17,7 @@ async def start_handler(message: Message):
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📋 Guruhlar", callback_data="list_groups")],
             [InlineKeyboardButton(text="📊 Statistika", callback_data="show_stats")],
+            [InlineKeyboardButton(text="🚫 Blacklist", callback_data="list_blacklist")],
             [InlineKeyboardButton(text="🔗 Telegram Ulash", callback_data="connect_telegram")],
             [InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="settings")],
             [InlineKeyboardButton(text="📢 Broadcast", callback_data="broadcast_help")],
@@ -420,7 +421,7 @@ async def process_phone(message: Message, state: FSMContext):
         from telethon import TelegramClient
         from src.config import settings
         
-        client = TelegramClient('admin_session', settings.API_ID, settings.API_HASH)
+        client = TelegramClient('userbot_session', settings.API_ID, settings.API_HASH)
         await client.connect()
         
         result = await client.send_code_request(phone)
@@ -636,7 +637,73 @@ async def help_cmd(message: Message):
 ✅ Haydovchilar guruhiga yuborish
 ✅ Statistika va hisobotlar
 """
-    await message.answer(text, parse_mode="Markdown")
+@router.callback_query(F.data == "list_blacklist")
+async def list_blacklist(callback: CallbackQuery):
+    db = next(get_db())
+    items = db.query(Blacklist).all()
+    
+    text = "🚫 **Blacklist:**\n\n"
+    if not items:
+        text += "Hozircha blacklist bo'sh."
+    else:
+        for item in items:
+            text += f"▪️ `{item.user_id}` - {item.reason or 'Sababsiz'}\n"
+    
+    text += "\nFoydalanish: `/blacklist <user_id> <sabab>`"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Yangilash", callback_data="list_blacklist")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
+    ])
+    
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    db.close()
+
+@router.message(Command("blacklist"))
+async def blacklist_cmd(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    args = message.text.split(maxsplit=2)
+    if len(args) < 2:
+        await message.answer("Foydalanish: `/blacklist <user_id> <sabab>`", parse_mode="Markdown")
+        return
+    
+    user_id = args[1]
+    reason = args[2] if len(args) > 2 else None
+    
+    db = next(get_db())
+    existing = db.query(Blacklist).filter(Blacklist.user_id == user_id).first()
+    if existing:
+        await message.answer("Bu foydalanuvchi allaqachon blacklistda!")
+    else:
+        new_item = Blacklist(user_id=user_id, reason=reason)
+        db.add(new_item)
+        db.commit()
+        await message.answer(f"✅ Bloklandi: `{user_id}`", parse_mode="Markdown")
+    
+    db.close()
+
+@router.message(Command("unblacklist"))
+async def unblacklist_cmd(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("Foydalanish: `/unblacklist <user_id>`", parse_mode="Markdown")
+        return
+    
+    user_id = args[1]
+    db = next(get_db())
+    item = db.query(Blacklist).filter(Blacklist.user_id == user_id).first()
+    if item:
+        db.delete(item)
+        db.commit()
+        await message.answer(f"✅ Blacklistdan chiqarildi: `{user_id}`", parse_mode="Markdown")
+    else:
+        await message.answer("Foydalanuvchi topilmadi.")
+    db.close()
 
 @router.message(Command("broadcast"))
 async def broadcast_cmd(message: Message):

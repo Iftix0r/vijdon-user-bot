@@ -28,13 +28,19 @@
 - Mijoz bilan bog'lanish
 
 ### 5. Admin Panel
-- Statistika (xabarlar, yo'lovchilar, haydovchilar)
-- Guruhlar ro'yxati
-- Sozlamalar
-- Broadcast (barcha guruhlarga xabar)
-- Tizim ma'lumotlari (CPU, RAM, Disk)
+- Premium Dashboard (modern dizayn)
+- Chart.js statistikalar (yo'lovchi vs haydovchi)
+- So'nggi xabarlar ro'yxati
+- Guruhlar ro'yxati va holati
+- System monitoring (CPU, RAM)
+- Blacklist boshqaruvi
 
-### 6. Sozlamalar
+### 6. Blacklist Tizimi
+- User ID orqali bloklash
+- Bloklangan foydalanuvchilar xabarlari tahlil qilinmaydi
+- Admin panel orqali boshqarish
+
+### 7. Sozlamalar
 - Buyurtmalar guruhini o'zgartirish
 - OpenAI API kalitini o'zgartirish
 - Bot tokenini o'zgartirish

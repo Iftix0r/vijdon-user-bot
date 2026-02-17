@@ -1,6 +1,6 @@
 from telethon import TelegramClient, events
 from src.config import settings
-from src.database.models import get_db, SourceGroup, Log
+from src.database.models import get_db, SourceGroup, Log, Blacklist
 from src.services.ai import analyze_message
 from datetime import datetime
 
@@ -8,8 +8,16 @@ from src.bot.loader import bot
 
 async def handle_new_message(event):
     chat_id = event.chat_id
+    user_id = str(event.sender_id)
     
     db = next(get_db())
+    
+    # Check Blacklist
+    is_blacklisted = db.query(Blacklist).filter(Blacklist.user_id == user_id).first()
+    if is_blacklisted:
+        db.close()
+        return
+
     allowed = db.query(SourceGroup).filter(SourceGroup.chat_id == str(chat_id), SourceGroup.active == True).first()
     
     if not allowed:

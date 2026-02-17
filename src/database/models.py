@@ -17,11 +17,22 @@ class Log(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String)
+    username = Column(String, nullable=True)
     message_text = Column(String)
     is_passenger = Column(Boolean)
     timestamp = Column(DateTime, default=datetime.utcnow)
     extracted_data = Column(String)
     source_chat_id = Column(String, nullable=True)
+    accepted = Column(Boolean, default=False)
+    rejected = Column(Boolean, default=False)
+
+class Blacklist(Base):
+    __tablename__ = 'blacklist'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, unique=True)
+    reason = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
 engine = create_engine('sqlite:///bot_data.db')
 Base.metadata.create_all(engine)
