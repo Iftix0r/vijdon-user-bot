@@ -5,11 +5,11 @@ After=network.target
 [Service]
 User=root
 Group=root
-WorkingDirectory=/root/I/B/vijdon-user-bot
-ExecStart=/root/I/B/vijdon-user-bot/venv/bin/python src/main.py
+WorkingDirectory=/root/Iftixor/Bot/vijdon-user-bot
+ExecStart=/root/Iftixor/Bot/vijdon-user-bot/venv/bin/python src/main.py
 Restart=always
 RestartSec=5
-EnvironmentFile=/root/I/B/vijdon-user-bot/.env
+EnvironmentFile=/root/Iftixor/Bot/vijdon-user-bot/.env
 
 [Install]
 WantedBy=multi-user.target
