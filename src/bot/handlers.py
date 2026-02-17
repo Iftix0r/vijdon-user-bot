@@ -208,11 +208,91 @@ async def settings_menu(callback: CallbackQuery):
     text += f"💾 Database: {total_logs} yozuv\n"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📤 Buyurtmalar Guruhini O'zgartirish", callback_data="change_target_group")],
+        [InlineKeyboardButton(text="🤖 OpenAI API", callback_data="change_openai")],
         [InlineKeyboardButton(text="📊 Tizim Ma'lumotlari", callback_data="system_info")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
     ])
     
     await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
+@router.callback_query(F.data == "change_target_group")
+async def change_target_group(callback: CallbackQuery):
+    text = "📤 **Buyurtmalar Guruhini O'zgartirish:**\n\n"
+    text += "Yangi guruh ID sini kiriting\n\n"
+    text += "Misol: `/settarget -1001234567890`"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="settings")],
+    ])
+    
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
+@router.callback_query(F.data == "change_openai")
+async def change_openai(callback: CallbackQuery):
+    text = "🤖 **OpenAI API:**\n\n"
+    text += "API kalitini o'zgartirish\n\n"
+    text += "Misol: `/setapi sk-proj-xxxxx`"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="settings")],
+    ])
+    
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
+@router.message(Command("settarget"))
+async def set_target_cmd(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer("Foydalanish: `/settarget <chat_id>`", parse_mode="Markdown")
+        return
+    
+    chat_id = args[1]
+    
+    try:
+        with open(".env", "r") as f:
+            lines = f.readlines()
+        
+        with open(".env", "w") as f:
+            for line in lines:
+                if line.startswith("TARGET_GROUP_ID="):
+                    f.write(f"TARGET_GROUP_ID={chat_id}\n")
+                else:
+                    f.write(line)
+        
+        await message.answer(f"✅ Buyurtmalar guruhi o'zgartirildi: `{chat_id}`\n\nBotni qayta ishga tushiring: /restart", parse_mode="Markdown")
+    except Exception as e:
+        await message.answer(f"❌ Xato: {str(e)}")
+
+@router.message(Command("setapi"))
+async def set_api_cmd(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer("Foydalanish: `/setapi <api_key>`", parse_mode="Markdown")
+        return
+    
+    api_key = args[1]
+    
+    try:
+        with open(".env", "r") as f:
+            lines = f.readlines()
+        
+        with open(".env", "w") as f:
+            for line in lines:
+                if line.startswith("OPENAI_API_KEY="):
+                    f.write(f"OPENAI_API_KEY={api_key}\n")
+                else:
+                    f.write(line)
+        
+        await message.answer("✅ OpenAI API kaliti o'zgartirildi!\n\nBotni qayta ishga tushiring: /restart", parse_mode="Markdown")
+    except Exception as e:
+        await message.answer(f"❌ Xato: {str(e)}")
 
 @router.callback_query(F.data == "connect_telegram")
 async def connect_telegram(callback: CallbackQuery, state: FSMContext):
@@ -226,6 +306,7 @@ async def connect_telegram(callback: CallbackQuery, state: FSMContext):
         text += "Nima qilmoqchisiz?"
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📥 Guruhlarni Import Qilish", callback_data="import_groups")],
             [InlineKeyboardButton(text="🔄 Boshqa Akkaunt", callback_data="reconnect_telegram")],
             [InlineKeyboardButton(text="🚪 Chiqish", callback_data="logout_telegram")],
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
@@ -242,6 +323,57 @@ async def connect_telegram(callback: CallbackQuery, state: FSMContext):
         await state.set_state(TelegramLogin.waiting_for_phone)
     
     await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
+@router.callback_query(F.data == "import_groups")
+async def import_groups(callback: CallbackQuery):
+    try:
+        from telethon import TelegramClient
+        from telethon.tl.types import Channel
+        
+        client = TelegramClient('userbot_session', settings.API_ID, settings.API_HASH)
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            await callback.answer("❌ Avval akkauntga kiring!")
+            return
+        
+        status_msg = await callback.message.edit_text("📥 Guruhlar yuklanmoqda...")
+        
+        dialogs = await client.get_dialogs()
+        db = next(get_db())
+        
+        added = 0
+        for dialog in dialogs:
+            if isinstance(dialog.entity, Channel) and dialog.entity.megagroup:
+                chat_id = str(dialog.entity.id)
+                chat_id_full = f"-100{chat_id}"
+                
+                existing = db.query(SourceGroup).filter(SourceGroup.chat_id == chat_id_full).first()
+                if not existing:
+                    new_group = SourceGroup(
+                        chat_id=chat_id_full,
+                        name=dialog.entity.title,
+                        active=False
+                    )
+                    db.add(new_group)
+                    added += 1
+        
+        db.commit()
+        db.close()
+        await client.disconnect()
+        
+        text = f"✅ Import tugadi!\n\n"
+        text += f"Qo'shildi: {added} ta guruh\n\n"
+        text += "Guruhlarni faollashtirish uchun 📋 Guruhlar bo'limiga o'ting."
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Guruhlar", callback_data="list_groups")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
+        ])
+        
+        await status_msg.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    except Exception as e:
+        await callback.answer(f"❌ Xato: {str(e)[:100]}")
 
 @router.callback_query(F.data == "reconnect_telegram")
 async def reconnect_telegram(callback: CallbackQuery, state: FSMContext):
