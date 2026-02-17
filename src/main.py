@@ -2,6 +2,7 @@ import asyncio
 import logging
 import sys
 import uvicorn
+from dotenv import load_dotenv
 from telethon import TelegramClient, events
 from aiogram import Dispatcher
 from src.config import settings
@@ -9,6 +10,9 @@ from src.bot.loader import bot, dp
 from src.bot.handlers import router
 from src.userbot.handler import handle_new_message
 from src.web.server import app
+
+# Load .env
+load_dotenv()
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
