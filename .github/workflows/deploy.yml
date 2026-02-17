@@ -15,10 +15,11 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          script_stop: false
           script: |
-            cd /root/Iftixor/Bot/vijdon-user-bot || exit 1
+            cd /root/Iftixor/Bot/vijdon-user-bot
             git pull origin main
             pkill -f "python.*main.py" || true
-            nohup bash -c 'source venv/bin/activate.fish && pip install -r requirements.txt -q && ./run.sh' > bot.log 2>&1 &
-            echo "✅ Deployment started"
+            sleep 1
+            (source venv/bin/activate.fish && pip install -r requirements.txt -q && ./run.sh > bot.log 2>&1 &) || true
+            sleep 1
+            echo "✅ Bot deployed successfully"
