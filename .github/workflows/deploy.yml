@@ -20,6 +20,6 @@ jobs:
             git pull origin main
             pkill -f "python.*main.py" || true
             sleep 1
-            (source venv/bin/activate.fish && pip install -r requirements.txt -q && ./run.sh > bot.log 2>&1 &) || true
+            bash -c "source venv/bin/activate && pip install -r requirements.txt -q && nohup ./run.sh > bot.log 2>&1 &" || true
             sleep 1
             echo "✅ Bot deployed successfully"
