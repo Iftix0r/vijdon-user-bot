@@ -13,16 +13,17 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Deploy to Server via SSH
-      uses: appleboy/ssh-action@master
+      uses: appleboy/ssh-action@v0.1.10
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.SSH_PORT }}
+        debug: true
         script: |
-          cd /root/I/B/vijdon-user-bot
+          cd /root/Iftixor/Bot/vijdon-user-bot
           git pull origin main
-          source venv/bin/activate
+          source venv/bin/activate.fish
           pip install -r requirements.txt
           systemctl restart vijdon-bot
           echo "Deployment successful!"
