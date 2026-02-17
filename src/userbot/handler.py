@@ -21,11 +21,11 @@ async def handle_new_message(event):
         db.close()
         return
 
-    # Call AI
-    result = await analyze_message(text)
-    
-    # Store Log
     try:
+        # Call AI
+        result = await analyze_message(text)
+        
+        # Store Log
         log_entry = Log(
             user_id=str(event.sender_id),
             message_text=text[:200],
@@ -35,36 +35,44 @@ async def handle_new_message(event):
         )
         db.add(log_entry)
         db.commit()
-    except Exception as e:
-        print(f"DB Log Error: {e}")
 
-    # Process Result
-    if result.get("type") == "PASSENGER":
-        data = result.get("data", {})
-        
-        # Get sender info
-        sender = await event.get_sender()
-        sender_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip()
-        sender_username = f"@{sender.username}" if sender.username else ""
-        
-        msg = (
-            "🚖 **Yangi Buyurtma!**\n\n"
-            f"📍 **Qayerdan:** {data.get('pickup', 'Nomalum')}\n"
-            f"🏁 **Qayerga:** {data.get('dropoff', 'Nomalum')}\n"
-            f"💰 **Narx:** {data.get('price', 'Kelishiladi')}\n"
-            f"📞 **Aloqa:** {data.get('phone', sender_username or 'Nomalum')}\n"
-        )
-        
-        if data.get('note'):
-            msg += f"📝 **Izoh:** {data.get('note')}\n"
-        
-        msg += f"\n👤 **Mijoz:** {sender_name} {sender_username}\n"
-        msg += f"💬 **Guruh:** {allowed.name or chat_id}\n\n"
-        msg += f"#buyurtma #{chat_id}"
+        # Process Result
+        if result.get("type") == "PASSENGER":
+            data = result.get("data", {})
+            
+            # Get sender info
+            sender = await event.get_sender()
+            sender_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip()
+            sender_username = f"@{sender.username}" if sender.username else ""
+            
+            msg = (
+                "🚖 **Yangi Buyurtma!**\n\n"
+                f"📍 **Qayerdan:** {data.get('pickup', 'Nomalum')}\n"
+                f"🏁 **Qayerga:** {data.get('dropoff', 'Nomalum')}\n"
+                f"💰 **Narx:** {data.get('price', 'Kelishiladi')}\n"
+                f"📞 **Aloqa:** {data.get('phone', sender_username or 'Nomalum')}\n"
+            )
+            
+            if data.get('note'):
+                msg += f"📝 **Izoh:** {data.get('note')}\n"
+            
+            msg += f"\n👤 **Mijoz:** {sender_name} {sender_username}\n"
+            msg += f"💬 **Guruh:** {allowed.name or chat_id}\n\n"
+            msg += f"#buyurtma #{chat_id}"
+            
+            await bot.send_message(chat_id=settings.TARGET_GROUP_ID, text=msg, parse_mode="Markdown")
+            
+    except Exception as e:
+        error_msg = f"⚠️ **Xatolik:**\n\n"
+        error_msg += f"Guruh: {allowed.name or chat_id}\n"
+        error_msg += f"Xato: {str(e)[:200]}\n\n"
+        error_msg += f"Xabar: {text[:100]}"
         
         try:
-            await bot.send_message(chat_id=settings.TARGET_GROUP_ID, text=msg, parse_mode="Markdown")
-        except Exception as e:
-            print(f"Failed to send to target group: {e}")
+            await bot.send_message(chat_id=settings.ADMIN_ID, text=error_msg, parse_mode="Markdown")
+        except:
+            pass
+        
+        print(f"Error in handle_new_message: {e}")
 
     db.close()
