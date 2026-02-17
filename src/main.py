@@ -13,6 +13,7 @@ from src.config import settings
 from src.bot.loader import bot, dp
 from src.bot.handlers import router
 from src.bot.order_handler import order_router
+from src.bot.error_handler import error_handler
 from src.userbot.handler import handle_new_message
 from src.web.server import app
 
@@ -37,6 +38,7 @@ async def start_bot():
     logger.info("Starting Bot...")
     dp.include_router(router)
     dp.include_router(order_router)
+    dp.errors.register(error_handler)
     await dp.start_polling(bot)
 
 async def start_web():
