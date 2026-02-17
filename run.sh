@@ -6,4 +6,5 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
+export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 python3 src/main.py
