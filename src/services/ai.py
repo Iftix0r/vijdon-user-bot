@@ -6,16 +6,18 @@ import re
 client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 PROMPT = """
-You are an AI assistant in a Telegram bot for identifying taxi orders in group chats.
-Analyze the following Uzbek message. Determine if the sender is a PASSENGER (looking for a taxi) or a DRIVER (offering a ride).
-If PASSENGER, extract:
-- pickup_location (implied or explicit)
-- dropoff_location (implied or explicit)
-- price (if mentioned)
-- contact (phone number if mentioned)
-- urgency (Urgent/Normal)
+Siz Telegram guruhlaridagi taksi buyurtmalarini aniqlaydigan AI yordamchisiz.
 
-Output valid JSON only:
+Quyidagi O'zbek tilidagi xabarni tahlil qiling va quyidagilarni aniqlang:
+1. Xabar turi: PASSENGER (yo'lovchi, taksi izlayapti) yoki DRIVER (haydovchi, yo'lovchi izlayapti) yoki OTHER (boshqa)
+2. Agar PASSENGER bo'lsa, quyidagilarni ajratib oling:
+   - Qayerdan (pickup): joy nomi, ko'cha, bino
+   - Qayerga (dropoff): manzil
+   - Narx (price): agar aytilgan bo'lsa
+   - Telefon (phone): agar aytilgan bo'lsa
+   - Qo'shimcha (note): boshqa ma'lumotlar
+
+Faqat JSON formatida javob bering:
 {
   "type": "PASSENGER" | "DRIVER" | "OTHER",
   "data": {
@@ -26,6 +28,11 @@ Output valid JSON only:
     "note": "..."
   }
 }
+
+Misollar:
+- "Chorsu dan Yunusobodga kerak" -> PASSENGER, pickup: Chorsu, dropoff: Yunusobod
+- "Sergeli dan shaharga boraman, 3 joy bor" -> DRIVER
+- "Salom" -> OTHER
 """
 
 async def analyze_message(text: str):
@@ -36,11 +43,11 @@ async def analyze_message(text: str):
                 {"role": "system", "content": PROMPT},
                 {"role": "user", "content": text}
             ],
-            temperature=0.3,
-            max_tokens=200
+            temperature=0.2,
+            max_tokens=250,
+            response_format={"type": "json_object"}
         )
         content = response.choices[0].message.content
-        # Basic cleanup for json
         if "```json" in content:
             content = content.replace("```json", "").replace("```", "")
         return json.loads(content.strip())

@@ -16,6 +16,7 @@ async def start_handler(message: Message):
             [InlineKeyboardButton(text="📋 Guruhlar", callback_data="list_groups")],
             [InlineKeyboardButton(text="📊 Statistika", callback_data="show_stats")],
             [InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="settings")],
+            [InlineKeyboardButton(text="📢 Broadcast", callback_data="broadcast_help")],
         ])
         await message.answer(f"Assalomu alaykum, Admin! 👋\n\nBoshqaruv paneli:", reply_markup=keyboard)
     else:
@@ -233,12 +234,26 @@ async def system_info(callback: CallbackQuery):
     
     await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
 
+@router.callback_query(F.data == "broadcast_help")
+async def broadcast_help(callback: CallbackQuery):
+    text = "📢 **Broadcast:**\n\n"
+    text += "Barcha faol guruhlarga xabar yuborish\n\n"
+    text += "Foydalanish: `/broadcast <xabar>`\n\n"
+    text += "Misol: `/broadcast Botda texnik ishlar`"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
+    ])
+    
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
 @router.callback_query(F.data == "back_main")
 async def back_main(callback: CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📋 Guruhlar", callback_data="list_groups")],
         [InlineKeyboardButton(text="📊 Statistika", callback_data="show_stats")],
         [InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="settings")],
+        [InlineKeyboardButton(text="📢 Broadcast", callback_data="broadcast_help")],
     ])
     await callback.message.edit_text(f"Assalomu alaykum, Admin! 👋\n\nBoshqaruv paneli:", reply_markup=keyboard)
 
@@ -291,10 +306,12 @@ async def help_cmd(message: Message):
 /start - Boshqaruv paneli
 /add <chat_id> <nomi> - Guruh qo'shish
 /stats - Statistika
+/broadcast <xabar> - Barcha guruhlarga xabar yuborish
 /help - Yordam
 
 **Misol:**
 `/add -1001234567890 Namangan Taksi`
+`/broadcast Botda texnik ishlar olib borilmoqda`
 
 **Bot Funksiyalari:**
 ✅ Guruhlarni kuzatish
@@ -303,3 +320,32 @@ async def help_cmd(message: Message):
 ✅ Statistika va hisobotlar
 """
     await message.answer(text, parse_mode="Markdown")
+
+@router.message(Command("broadcast"))
+async def broadcast_cmd(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    text = message.text.replace("/broadcast", "").strip()
+    if not text:
+        await message.answer("Foydalanish: `/broadcast <xabar>`", parse_mode="Markdown")
+        return
+    
+    db = next(get_db())
+    groups = db.query(SourceGroup).filter(SourceGroup.active == True).all()
+    
+    success = 0
+    failed = 0
+    
+    status_msg = await message.answer("📤 Xabar yuborilmoqda...")
+    
+    for group in groups:
+        try:
+            await message.bot.send_message(chat_id=group.chat_id, text=text)
+            success += 1
+        except Exception as e:
+            failed += 1
+            print(f"Broadcast error to {group.chat_id}: {e}")
+    
+    db.close()
+    await status_msg.edit_text(f"✅ Xabar yuborildi:\n\nMuvaffaqiyatli: {success}\nXato: {failed}")
