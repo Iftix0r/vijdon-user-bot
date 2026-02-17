@@ -15,6 +15,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
+          script_stop: false
           script: |
             cd /root/Iftixor/Bot/vijdon-user-bot || exit 1
             git pull origin main
