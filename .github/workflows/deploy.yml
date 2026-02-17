@@ -15,13 +15,13 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
+          command_timeout: 30m
           script: |
             cd /root/Iftixor/Bot/vijdon-user-bot
             git pull origin main
             source venv/bin/activate.fish
             pip install -r requirements.txt
             pkill -f "python.*main.py" || true
-            sleep 2
+            sleep 1
             nohup ./run.sh > bot.log 2>&1 &
-            sleep 2
             echo "Bot deployed successfully!"
