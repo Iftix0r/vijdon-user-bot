@@ -246,7 +246,13 @@ async def process_phone(message: Message, state: FSMContext):
         await state.update_data(phone=phone, phone_code_hash=result.phone_code_hash, client=client)
         await state.set_state(TelegramLogin.waiting_for_code)
         
-        await message.answer("✅ Kod yuborildi! Telegram'dan kelgan kodni kiriting:")
+        text = "✅ Kod yuborildi!\n\n"
+        text += "📝 Kodni quyidagi formatda kiriting:\n"
+        text += "Misol: `12345` yoki `1.2.3.4.5`\n\n"
+        text += "⚠️ Diqqat: Kod 5 daqiqa ichida amal qiladi!\n\n"
+        text += "Agar kod muddati tugasa, qaytadan `/start` bosib yangi kod oling."
+        
+        await message.answer(text, parse_mode="Markdown")
     except Exception as e:
         await message.answer(f"❌ Xato: {str(e)}")
         await state.clear()
@@ -256,7 +262,7 @@ async def process_code(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS:
         return
     
-    code = message.text.strip()
+    code = message.text.strip().replace(".", "").replace(" ", "").replace("-", "")
     data = await state.get_data()
     
     try:
@@ -271,11 +277,15 @@ async def process_code(message: Message, state: FSMContext):
         await message.answer("✅ Muvaffaqiyatli kirildi! Botni qayta ishga tushiring: /restart")
         await state.clear()
     except Exception as e:
-        if "password" in str(e).lower():
+        error_msg = str(e)
+        if "password" in error_msg.lower():
             await state.set_state(TelegramLogin.waiting_for_password)
             await message.answer("🔐 2FA parol kiriting:")
+        elif "expired" in error_msg.lower():
+            await message.answer("❌ Kod muddati tugagan! Qaytadan `/start` bosib yangi kod oling.", parse_mode="Markdown")
+            await state.clear()
         else:
-            await message.answer(f"❌ Xato: {str(e)}")
+            await message.answer(f"❌ Xato: {error_msg}\n\nQaytadan urinib ko'ring yoki `/start` bosing.", parse_mode="Markdown")
             await state.clear()
 
 @router.message(TelegramLogin.waiting_for_password)
