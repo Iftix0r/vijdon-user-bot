@@ -7,16 +7,27 @@ from src.config import settings
 router = Router()
 
 # Simple admin check
-ADMIN_IDS = [12345678]  # Replace with actual admin IDs
+ADMIN_IDS = [settings.ADMIN_ID]
 
 @router.message(Command("start"))
 async def start_handler(message: Message):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="👥 Guruh Qo'shish", callback_data="add_group")],
-        [InlineKeyboardButton(text="❌ Guruh O'chirish", callback_data="remove_group")],
-        [InlineKeyboardButton(text="📋 Guruhlar Ro'yxati", callback_data="list_groups")],
-    ])
-    await message.answer(f"Assalomu alaykum, {message.from_user.full_name}! 👋\n\nMen **Taxi Bot** man 🚕.\nMen guruhlardan buyurtmalarni aniqlab, haydovchilar guruhiga uzataman.\n\nBoshqaruv paneli uchun tugmalardan foydalaning 👇", reply_markup=keyboard)
+    if message.from_user.id in ADMIN_IDS:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Guruhlar Ro'yxati", callback_data="list_groups")],
+            [InlineKeyboardButton(text="📊 Statistika", callback_data="show_stats")],
+        ])
+        await message.answer(f"Assalomu alaykum, Admin! 👋\n\nBoshqaruv paneli:", reply_markup=keyboard)
+    else:
+        await message.answer(f"Assalomu alaykum, {message.from_user.full_name}! 👋\n\nMen **Taxi Bot** man 🚕.")
+
+
+@router.callback_query(F.data == "show_stats")
+async def show_stats(callback: CallbackQuery):
+    db = next(get_db())
+    count = db.query(Log).count()
+    passengers = db.query(Log).filter(Log.is_passenger == True).count()
+    await callback.message.edit_text(f"📊 **Statistika**\n\nJami Xabarlar: {count}\nYo'lovchilar: {passengers}")
+    db.close()
 
 
 @router.callback_query(F.data == "list_groups")
