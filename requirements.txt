@@ -1,0 +1,10 @@
+aiogram>=3.0.0
+telethon>=1.30.0
+openai>=1.0.0
+python-dotenv
+fastapi
+uvicorn
+jinja2
+sqlalchemy
+pydantic-settings
+loguru
