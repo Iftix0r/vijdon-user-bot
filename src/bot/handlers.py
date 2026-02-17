@@ -17,6 +17,7 @@ async def start_handler(message: Message):
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📋 Guruhlar", callback_data="list_groups")],
             [InlineKeyboardButton(text="📊 Statistika", callback_data="show_stats")],
+            [InlineKeyboardButton(text="🔗 Telegram Ulash", callback_data="connect_telegram")],
             [InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="settings")],
             [InlineKeyboardButton(text="📢 Broadcast", callback_data="broadcast_help")],
         ])
@@ -207,7 +208,6 @@ async def settings_menu(callback: CallbackQuery):
     text += f"💾 Database: {total_logs} yozuv\n"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔗 Telegram Ulash", callback_data="connect_telegram")],
         [InlineKeyboardButton(text="📊 Tizim Ma'lumotlari", callback_data="system_info")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
     ])
@@ -376,6 +376,7 @@ async def back_main(callback: CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📋 Guruhlar", callback_data="list_groups")],
         [InlineKeyboardButton(text="📊 Statistika", callback_data="show_stats")],
+        [InlineKeyboardButton(text="🔗 Telegram Ulash", callback_data="connect_telegram")],
         [InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="settings")],
         [InlineKeyboardButton(text="📢 Broadcast", callback_data="broadcast_help")],
     ])
