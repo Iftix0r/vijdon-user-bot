@@ -205,11 +205,65 @@ async def settings_menu(callback: CallbackQuery):
     text += f"💾 Database: {total_logs} yozuv\n"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔗 Telegram Ulash", callback_data="connect_telegram")],
         [InlineKeyboardButton(text="📊 Tizim Ma'lumotlari", callback_data="system_info")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
     ])
     
     await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
+@router.callback_query(F.data == "connect_telegram")
+async def connect_telegram(callback: CallbackQuery):
+    text = "🔗 **Telegram Akkauntni Ulash:**\n\n"
+    text += "1. @BotFather ga `/newbot` yuboring\n"
+    text += "2. Bot nomini kiriting\n"
+    text += "3. Bot username kiriting\n"
+    text += "4. Token oling\n\n"
+    text += "Keyin `/settoken <token>` buyrug'ini yuboring"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="settings")],
+    ])
+    
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
+@router.message(Command("settoken"))
+async def set_token_cmd(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer("Foydalanish: `/settoken <bot_token>`", parse_mode="Markdown")
+        return
+    
+    token = args[1]
+    
+    # Token ni .env ga yozish
+    try:
+        with open(".env", "r") as f:
+            lines = f.readlines()
+        
+        with open(".env", "w") as f:
+            for line in lines:
+                if line.startswith("BOT_TOKEN="):
+                    f.write(f"BOT_TOKEN={token}\n")
+                else:
+                    f.write(line)
+        
+        await message.answer("✅ Token saqlandi! Botni qayta ishga tushiring: `/restart`", parse_mode="Markdown")
+    except Exception as e:
+        await message.answer(f"❌ Xato: {str(e)}")
+
+@router.message(Command("restart"))
+async def restart_cmd(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    await message.answer("🔄 Bot qayta ishga tushirilmoqda...")
+    import os
+    import sys
+    os.execv(sys.executable, ['python3'] + sys.argv)
 
 @router.callback_query(F.data == "system_info")
 async def system_info(callback: CallbackQuery):

@@ -35,6 +35,7 @@ async def handle_new_message(event):
         )
         db.add(log_entry)
         db.commit()
+        db.refresh(log_entry)
 
         # Process Result
         if result.get("type") == "PASSENGER":
@@ -60,7 +61,14 @@ async def handle_new_message(event):
             msg += f"💬 **Guruh:** {allowed.name or chat_id}\n\n"
             msg += f"#buyurtma #{chat_id}"
             
-            await bot.send_message(chat_id=settings.TARGET_GROUP_ID, text=msg, parse_mode="Markdown")
+            # Add accept/reject buttons
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✅ Qabul Qilish", callback_data=f"accept_{log_entry.id}")],
+                [InlineKeyboardButton(text="❌ Rad Etish", callback_data=f"reject_{log_entry.id}")],
+            ])
+            
+            await bot.send_message(chat_id=settings.TARGET_GROUP_ID, text=msg, parse_mode="Markdown", reply_markup=keyboard)
             
     except Exception as e:
         error_msg = f"⚠️ **Xatolik:**\n\n"
