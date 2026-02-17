@@ -20,7 +20,7 @@ jobs:
         DEPLOY_PORT: ${{ secrets.SSH_PORT }}
       run: |
         mkdir -p ~/.ssh
-        echo "$DEPLOY_KEY" | base64 -d > ~/.ssh/id_ed25519
+        echo "$DEPLOY_KEY" > ~/.ssh/id_ed25519
         chmod 600 ~/.ssh/id_ed25519
         ssh-keyscan -p $DEPLOY_PORT $DEPLOY_HOST >> ~/.ssh/known_hosts 2>/dev/null
-        ssh -vvv -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new -p $DEPLOY_PORT $DEPLOY_USER@$DEPLOY_HOST "cd /root/Iftixor/Bot/vijdon-user-bot && git pull origin main && source venv/bin/activate.fish && pip install -r requirements.txt && systemctl restart vijdon-bot && echo 'Deployment successful!'"
+        ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new -p $DEPLOY_PORT $DEPLOY_USER@$DEPLOY_HOST "cd /root/Iftixor/Bot/vijdon-user-bot && git pull origin main && source venv/bin/activate.fish && pip install -r requirements.txt && systemctl restart vijdon-bot && echo 'Deployment successful!'"
