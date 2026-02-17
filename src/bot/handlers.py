@@ -25,32 +25,49 @@ async def start_handler(message: Message):
 @router.callback_query(F.data == "show_stats")
 async def show_stats(callback: CallbackQuery):
     db = next(get_db())
-    count = db.query(Log).count()
+    total_logs = db.query(Log).count()
     passengers = db.query(Log).filter(Log.is_passenger == True).count()
+    drivers = total_logs - passengers
+    
+    # Guruhlar statistikasi
+    active_groups = db.query(SourceGroup).filter(SourceGroup.active == True).count()
+    total_groups = db.query(SourceGroup).count()
+    
+    text = "📊 **Statistika**\n\n"
+    text += f"📨 Jami Xabarlar: {total_logs}\n"
+    text += f"👤 Yo'lovchilar: {passengers}\n"
+    text += f"🚗 Haydovchilar: {drivers}\n\n"
+    text += f"📋 Guruhlar: {active_groups}/{total_groups} faol\n"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Yangilash", callback_data="show_stats")],
+        [InlineKeyboardButton(text="🗑 Loglarni Tozalash", callback_data="clear_logs")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
     ])
     
-    await callback.message.edit_text(f"📊 **Statistika**\n\nJami Xabarlar: {count}\nYo'lovchilar: {passengers}", parse_mode="Markdown", reply_markup=keyboard)
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
     db.close()
 
 @router.callback_query(F.data == "list_groups")
 async def list_groups(callback: CallbackQuery):
     db = next(get_db())
     groups = db.query(SourceGroup).all()
-    text = "📋 **Kuzatilayotgan Guruhlar:**\n\n"
+    
+    active_count = sum(1 for g in groups if g.active)
+    text = f"📋 **Guruhlar ({active_count}/{len(groups)} faol):**\n\n"
     
     keyboard_buttons = []
     for g in groups:
         status = "✅" if g.active else "❌"
-        text += f"{status} `{g.chat_id}` - {g.name or 'Nomalum'}\n"
-        keyboard_buttons.append([InlineKeyboardButton(text=f"{status} {g.name or g.chat_id}", callback_data=f"group_{g.id}")])
+        name_display = g.name[:20] if g.name else str(g.chat_id)[:15]
+        keyboard_buttons.append([InlineKeyboardButton(text=f"{status} {name_display}", callback_data=f"group_{g.id}")])
     
     if not groups:
-        text += "Guruhlar mavjud emas."
+        text += "Guruhlar mavjud emas.\n\n"
+        text += "ℹ️ Guruh qo'shish uchun `/add` buyrug'idan foydalaning."
     
-    keyboard_buttons.append([InlineKeyboardButton(text="➕ Guruh Qo'shish (/add)", callback_data="add_help")])
+    keyboard_buttons.append([InlineKeyboardButton(text="➕ Guruh Qo'shish", callback_data="add_help")])
+    keyboard_buttons.append([InlineKeyboardButton(text="🔄 Yangilash", callback_data="list_groups")])
     keyboard_buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")])
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
@@ -79,15 +96,22 @@ async def group_detail(callback: CallbackQuery):
         await callback.answer("Guruh topilmadi")
         return
     
+    # Guruh statistikasi
+    group_logs = db.query(Log).filter(Log.source_chat_id == group.chat_id).count()
+    
     status = "✅ Faol" if group.active else "❌ Nofaol"
-    text = f"📋 **Guruh Ma'lumotlari:**\n\n"
-    text += f"Nomi: {group.name or 'Nomalum'}\n"
-    text += f"Chat ID: `{group.chat_id}`\n"
-    text += f"Holat: {status}\n"
+    text = f"📋 **Guruh Tafsilotlari:**\n\n"
+    text += f"🏷 Nomi: {group.name or 'Nomalum'}\n"
+    text += f"🆔 Chat ID: `{group.chat_id}`\n"
+    text += f"🟢 Holat: {status}\n"
+    text += f"📨 Xabarlar: {group_logs}\n"
+    
+    toggle_text = "❌ Nofaol Qilish" if group.active else "✅ Faollashtirish"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Holatni O'zgartirish", callback_data=f"toggle_{group_id}")],
-        [InlineKeyboardButton(text="🗑 O'chirish", callback_data=f"delete_{group_id}")],
+        [InlineKeyboardButton(text=toggle_text, callback_data=f"toggle_{group_id}")],
+        [InlineKeyboardButton(text="🔄 Yangilash", callback_data=f"group_{group_id}")],
+        [InlineKeyboardButton(text="🗑 O'chirish", callback_data=f"confirm_delete_{group_id}")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="list_groups")],
     ])
     
@@ -109,6 +133,29 @@ async def toggle_group(callback: CallbackQuery):
     callback.data = f"group_{group_id}"
     await group_detail(callback)
 
+@router.callback_query(F.data.startswith("confirm_delete_"))
+async def confirm_delete_group(callback: CallbackQuery):
+    group_id = int(callback.data.split("_")[2])
+    db = next(get_db())
+    group = db.query(SourceGroup).filter(SourceGroup.id == group_id).first()
+    
+    if not group:
+        await callback.answer("Guruh topilmadi")
+        return
+    
+    text = f"⚠️ **Guruhni o'chirish:**\n\n"
+    text += f"Guruh: {group.name or 'Nomalum'}\n"
+    text += f"Chat ID: `{group.chat_id}`\n\n"
+    text += "Rostdan ham o'chirmoqchimisiz?"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Ha, O'chirish", callback_data=f"delete_{group_id}")],
+        [InlineKeyboardButton(text="❌ Bekor Qilish", callback_data=f"group_{group_id}")],
+    ])
+    
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+    db.close()
+
 @router.callback_query(F.data.startswith("delete_"))
 async def delete_group(callback: CallbackQuery):
     group_id = int(callback.data.split("_")[1])
@@ -124,15 +171,64 @@ async def delete_group(callback: CallbackQuery):
     callback.data = "list_groups"
     await list_groups(callback)
 
+@router.callback_query(F.data == "clear_logs")
+async def clear_logs(callback: CallbackQuery):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Ha, Tozalash", callback_data="confirm_clear_logs")],
+        [InlineKeyboardButton(text="❌ Bekor Qilish", callback_data="show_stats")],
+    ])
+    await callback.message.edit_text("⚠️ **Barcha loglarni o'chirmoqchimisiz?**\n\nBu amalni qaytarib bo'lmaydi!", parse_mode="Markdown", reply_markup=keyboard)
+
+@router.callback_query(F.data == "confirm_clear_logs")
+async def confirm_clear_logs(callback: CallbackQuery):
+    db = next(get_db())
+    count = db.query(Log).count()
+    db.query(Log).delete()
+    db.commit()
+    db.close()
+    
+    await callback.answer(f"{count} ta log o'chirildi")
+    callback.data = "show_stats"
+    await show_stats(callback)
+
 @router.callback_query(F.data == "settings")
 async def settings_menu(callback: CallbackQuery):
+    db = next(get_db())
+    total_logs = db.query(Log).count()
+    db.close()
+    
     text = f"⚙️ **Sozlamalar:**\n\n"
-    text += f"Buyurtmalar Guruhi: `{settings.TARGET_GROUP_ID}`\n"
-    text += f"AI Model: {settings.OPENAI_MODEL}\n"
-    text += f"Admin ID: `{settings.ADMIN_ID}`\n"
+    text += f"📤 Buyurtmalar Guruhi: `{settings.TARGET_GROUP_ID}`\n"
+    text += f"🤖 AI Model: {settings.OPENAI_MODEL}\n"
+    text += f"👤 Admin ID: `{settings.ADMIN_ID}`\n"
+    text += f"💾 Database: {total_logs} yozuv\n"
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📊 Tizim Ma'lumotlari", callback_data="system_info")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")],
+    ])
+    
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
+
+@router.callback_query(F.data == "system_info")
+async def system_info(callback: CallbackQuery):
+    import platform
+    import psutil
+    
+    cpu_percent = psutil.cpu_percent(interval=1)
+    memory = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    
+    text = f"💻 **Tizim Ma'lumotlari:**\n\n"
+    text += f"💿 OS: {platform.system()} {platform.release()}\n"
+    text += f"🔹 Python: {platform.python_version()}\n"
+    text += f"🟢 CPU: {cpu_percent}%\n"
+    text += f"🟡 RAM: {memory.percent}% ({memory.used // (1024**3)}GB / {memory.total // (1024**3)}GB)\n"
+    text += f"🟠 Disk: {disk.percent}% ({disk.used // (1024**3)}GB / {disk.total // (1024**3)}GB)\n"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Yangilash", callback_data="system_info")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="settings")],
     ])
     
     await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=keyboard)
