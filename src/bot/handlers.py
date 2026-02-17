@@ -7,7 +7,7 @@ from src.config import settings
 router = Router()
 
 # Simple admin check
-ADMIN_IDS = [12345678, user_id_placeholder] # Replace with actual admin ID
+ADMIN_IDS = [12345678]  # Replace with actual admin IDs
 
 @router.message(Command("start"))
 async def start_handler(message: Message):
